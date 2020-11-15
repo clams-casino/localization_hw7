@@ -1,0 +1,11 @@
+<package>
+  <name>encoder_localization</name>
+  <version>0.1.0</version>
+  <description>
+  Publishes duckiebot pose by integrating the wheel encoders
+  </description>
+  <maintainer email="mike.zhang.619@gmail.com">Mike Zhang</maintainer>
+  <license>None</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+</package>
