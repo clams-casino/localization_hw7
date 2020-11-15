@@ -37,7 +37,7 @@ class EncoderLocalizationNode(DTROS):
         
 
         # Timed TF publication
-        self.tf_timer = rospy.Timer(rospy.Duration(30.0), self.tf_timer_cb)
+        self.tf_timer = rospy.Timer(rospy.Duration(1.0/30.0), self.tf_timer_cb)
 
         # TF broadcaster
         self.tf_broadcaster = tf.TransformBroadcaster()
@@ -79,12 +79,13 @@ class EncoderLocalizationNode(DTROS):
     def wrap(theta):
         if theta > np.pi:
             return theta - 2 * np.pi
-        elif theta <= np.pi:
+        elif theta <= -np.pi:
             return theta + 2 * np.pi
         else:
             return theta
 
-    def tf_timer_cb(self):
+    def tf_timer_cb(self, timer):
+
         dl = self.left_distance - self.left_distance_last
         dr = self.right_distance - self.right_distance_last
 
@@ -107,7 +108,7 @@ class EncoderLocalizationNode(DTROS):
 
         self.tf_broadcaster.sendTransform((map_x_base, map_y_base, 0),
                                           tf.transformations.quaternion_from_euler(0, 0, map_theta_base),
-                                          self.last_tick_time,
+                                          rospy.Time.now(),   # TODO update duckiebot image
                                           'encoder_baselink',
                                           'map')
         
