@@ -218,7 +218,7 @@ class ATLocalizationNode(DTROS):
 
                 broadcastTF(atloc_camloc, 'april_tag', 'camera',
                             self.tf_br, data.header.stamp)
-                broadcastTF(map_base, 'map', 'at_baselink', self.tf_br)
+                broadcastTF(map_base, 'map', 'at_baselink', self.tf_br, data.header.stamp)
 
                 break
 
