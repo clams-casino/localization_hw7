@@ -148,7 +148,7 @@ class ATLocalizationNode(DTROS):
         self.camera_params = (
             cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2])
 
-        new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(cam_mat, distortion_coeff, (640, 480), 1.0)
+        new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(cam_mat, distortion_coeff, (640, 480), 0.0)
         self.map1, self.map2, = cv2.initUndistortRectifyMap(cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
 
 
