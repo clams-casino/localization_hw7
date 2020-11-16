@@ -1,0 +1,10 @@
+<launch>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="at_localization" type="at_localization_node.py" name="at_localization_node"  output="screen">
+    </node>
+
+  </group>
+
+</launch>
