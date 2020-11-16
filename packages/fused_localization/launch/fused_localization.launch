@@ -1,0 +1,16 @@
+<launch>
+
+  <group ns="$(arg veh)">  
+
+    <node pkg="encoder_localization" type="encoder_localization_node.py" name="encoder_localization_node"  output="screen">
+    </node>
+
+    <node pkg="at_localization" type="at_localization_node.py" name="at_localization_node"  output="screen">
+    </node>
+
+    <node pkg="fused_localization" type="fused_localization_node.py" name="fused_localization_node.py"  output="screen">
+    </node>
+
+  </group>
+
+</launch>
