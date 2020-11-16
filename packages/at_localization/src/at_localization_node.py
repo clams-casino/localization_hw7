@@ -105,8 +105,6 @@ class ATLocalizationNode(DTROS):
         # TODO remove later
         self.debug_image_pub = rospy.Publisher('~/debug_image/compressed', CompressedImage)
 
-
-
         # tf broadcasters
         self.static_tf_br = tf2_ros.StaticTransformBroadcaster()
         self.tf_br = tf2_ros.TransformBroadcaster()
@@ -120,6 +118,9 @@ class ATLocalizationNode(DTROS):
                                     refine_edges=1,
                                     decode_sharpening=0.25,
                                     debug=0)
+         # Keep track of the ID of the landmark tag
+        self.at_id = None
+
 
         # get camera calibration parameters (homography, camera matrix, distortion parameters)
         intrinsics_file = '/data/config/calibrations/camera_intrinsic/' + \
@@ -139,30 +140,20 @@ class ATLocalizationNode(DTROS):
             intrinsics['camera_matrix']['data']).reshape(3, 3)
 
         distortion_coeff = np.array(intrinsics['distortion_coefficients']['data'])
-
         H_ground2img = np.linalg.inv(np.array(extrinsics['homography']).reshape(3,3))
 
         
 
-        # Precompute some quantities
+        # precompute some quantities
         self.camera_params = (
             cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2])
 
-        new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(cam_mat, distortion_coeff, (640, 480), 0.0)
+        new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(cam_mat, distortion_coeff, (640, 480), 1.0)
         self.map1, self.map2, = cv2.initUndistortRectifyMap(cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
 
 
-        # TODO define static TFs as np arrays for multiplication and to broadcast 
+        # define static TFs as np arrays for multiplication and to broadcast 
 
-        camcv_base_estimated = estimateTfFromHomography(H_ground2img, new_cam_mat)
-
-        theta = 15.0 / 180.0 * np.pi 
-        base_camloc_nominal = np.array([[ np.cos(theta), 0.0, np.sin(theta), 0.0582],  
-                                        [ 0.0,           1.0, 0.0,           0.0],
-                                        [-np.sin(theta), 0.0, np.cos(theta), 0.1072],
-                                        [ 0.0,           0.0, 0.0,           1.0]])
-
- 
         self.camloc_camcv = np.array([[ 0.0,  0.0, 1.0, 0.0],   # Needed in the callback (callback gives camloc_atloc)
                                       [-1.0,  0.0, 0.0, 0.0],
                                       [ 0.0, -1.0, 0.0, 0.0],
@@ -174,6 +165,14 @@ class ATLocalizationNode(DTROS):
                                     [ 0.0, 0.0,  0.0, 1.0]])
 
 
+        camcv_base_estimated = estimateTfFromHomography(H_ground2img, new_cam_mat)
+
+        theta = 15.0 / 180.0 * np.pi 
+        base_camloc_nominal = np.array([[ np.cos(theta), 0.0, np.sin(theta), 0.0582],  
+                                        [ 0.0,           1.0, 0.0,           0.0],
+                                        [-np.sin(theta), 0.0, np.cos(theta), 0.1072],
+                                        [ 0.0,           0.0, 0.0,           1.0]])
+
         camloc_base = self.camloc_camcv @ camcv_base_estimated
         # camloc_base = np.linalg.inv(base_camloc_nominal)
 
@@ -182,13 +181,11 @@ class ATLocalizationNode(DTROS):
                               [0.0, 0.0, 1.0, 0.085],
                               [0.0, 0.0, 0.0, 1.0]])
 
-
         broadcastTF(camloc_base, 'camera', 'at_baselink', self.static_tf_br)
         broadcastTF(map_atloc, 'map', 'april_tag', self.static_tf_br)
         
 
-        # Keep track of detected tag id
-        self.at_id = None
+       
 
 
     def callback(self, data):
@@ -202,8 +199,6 @@ class ATLocalizationNode(DTROS):
         # self.debug_image_pub.publish(msg)
 
         tags = self.at_detector.detect(undistorted_img, estimate_tag_pose=True, camera_params=self.camera_params, tag_size=TAG_SIZE)
-
-        # print('Detected {} tags'.format(len(tags)))
 
         for tag in tags:
             if self.at_id == None:
