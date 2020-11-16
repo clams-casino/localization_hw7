@@ -33,16 +33,17 @@ def readYamlFile(fname):
             return yaml_dict
         except yaml.YAMLError as exc:
             self.log("YAML syntax error. File: %s fname. Exc: %s"
-                        % (fname, exc), type='fatal')
+                     % (fname, exc), type='fatal')
             rospy.signal_shutdown()
             return
 
 
 def estimateTfFromHomography(H, K):
     T_plane = np.linalg.inv(K) @ H
-    T_plane = T_plane / np.linalg.norm(T_plane[:, 0]) # estimate scale using rotation matrix basis constraint
+    # estimate scale using rotation matrix basis constraint
+    T_plane = T_plane / np.linalg.norm(T_plane[:, 0])
 
-    if T_plane[1,-1] < 0.0:
+    if T_plane[1, -1] < 0.0:
         T_plane = -T_plane
 
     r1 = T_plane[:, 0]
@@ -54,10 +55,9 @@ def estimateTfFromHomography(H, K):
     r2 = r2 / np.linalg.norm(r2)
     r3 = np.cross(r1, r2)
 
-
-    T = np.zeros((4,4))
+    T = np.zeros((4, 4))
     T[:3, :] = np.column_stack((r1, r2, r3, t))
-    T[-1,-1] = 1.0
+    T[-1, -1] = 1.0
 
     return T
 
@@ -72,9 +72,9 @@ def broadcastTF(tf_mat, parent, child, broadcaster, timestamp=None):
     t.header.frame_id = parent
     t.child_frame_id = child
 
-    t.transform.translation.x = tf_mat[0,-1]
-    t.transform.translation.y = tf_mat[1,-1]
-    t.transform.translation.z = tf_mat[2,-1]
+    t.transform.translation.x = tf_mat[0, -1]
+    t.transform.translation.y = tf_mat[1, -1]
+    t.transform.translation.z = tf_mat[2, -1]
     q = tf.transformations.quaternion_from_matrix(tf_mat)
     t.transform.rotation.x = q[0]
     t.transform.rotation.y = q[1]
@@ -93,17 +93,12 @@ class ATLocalizationNode(DTROS):
             node_name=node_name, node_type=NodeType.PERCEPTION)
         self.veh = rospy.get_namespace().strip("/")
 
-
         # bridge between opencv and ros
         self.bridge = CvBridge()
 
         # construct subscriber for images
         self.camera_sub = rospy.Subscriber(
-            'camera_node/image/compressed', CompressedImage, self.callback, queue_size=1) # Only process latest messages
-
-
-        # TODO remove later
-        self.debug_image_pub = rospy.Publisher('~/debug_image/compressed', CompressedImage)
+            'camera_node/image/compressed', CompressedImage, self.callback, queue_size=1)  # Only process latest messages
 
         # tf broadcasters
         self.static_tf_br = tf2_ros.StaticTransformBroadcaster()
@@ -118,8 +113,15 @@ class ATLocalizationNode(DTROS):
                                     refine_edges=1,
                                     decode_sharpening=0.25,
                                     debug=0)
-         # Keep track of the ID of the landmark tag
+        # Keep track of the ID of the landmark tag
         self.at_id = None
+
+
+
+        # check cuda
+        print('cuda')
+        print(cv2.cuda.getCudaEnabledDeviceCount())
+
 
 
         # get camera calibration parameters (homography, camera matrix, distortion parameters)
@@ -139,87 +141,86 @@ class ATLocalizationNode(DTROS):
         cam_mat = np.array(
             intrinsics['camera_matrix']['data']).reshape(3, 3)
 
-        distortion_coeff = np.array(intrinsics['distortion_coefficients']['data'])
-        H_ground2img = np.linalg.inv(np.array(extrinsics['homography']).reshape(3,3))
-
-        
+        distortion_coeff = np.array(
+            intrinsics['distortion_coefficients']['data'])
+        H_ground2img = np.linalg.inv(
+            np.array(extrinsics['homography']).reshape(3, 3))
 
         # precompute some quantities
         self.camera_params = (
             cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2])
 
-        new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(cam_mat, distortion_coeff, (640, 480), 0.0)
-        self.map1, self.map2, = cv2.initUndistortRectifyMap(cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
+        new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(
+            cam_mat, distortion_coeff, (640, 480), 0.0)
+        self.map1, self.map2, = cv2.initUndistortRectifyMap(
+            cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
 
 
-        # define static TFs as np arrays for multiplication and to broadcast 
+        # define and broadcast static tfs
 
-        self.camloc_camcv = np.array([[ 0.0,  0.0, 1.0, 0.0],   # Needed in the callback (callback gives camloc_atloc)
+        self.camloc_camcv = np.array([[0.0,  0.0, 1.0, 0.0],
                                       [-1.0,  0.0, 0.0, 0.0],
-                                      [ 0.0, -1.0, 0.0, 0.0],
-                                      [ 0.0,  0.0, 0.0, 1.0]])
+                                      [0.0, -1.0, 0.0, 0.0],
+                                      [0.0,  0.0, 0.0, 1.0]])
 
-        self.atcv_atloc = np.array([[ 0.0, 1.0,  0.0, 0.0],     # Needed in the callback (callback gives camloc_atloc)
-                                    [ 0.0, 0.0, -1.0, 0.0],
+        self.atcv_atloc = np.array([[0.0, 1.0,  0.0, 0.0],
+                                    [0.0, 0.0, -1.0, 0.0],
                                     [-1.0, 0.0,  0.0, 0.0],
-                                    [ 0.0, 0.0,  0.0, 1.0]])
+                                    [0.0, 0.0,  0.0, 1.0]])
 
+        camcv_base_estimated = estimateTfFromHomography(
+            H_ground2img, new_cam_mat)
 
-        camcv_base_estimated = estimateTfFromHomography(H_ground2img, new_cam_mat)
+        theta = 15.0 / 180.0 * np.pi
+        base_camloc_nominal = np.array([[np.cos(theta), 0.0, np.sin(theta), 0.0582],
+                                        [0.0,           1.0, 0.0,           0.0],
+                                        [-np.sin(theta), 0.0,
+                                         np.cos(theta), 0.1072],
+                                        [0.0,           0.0, 0.0,           1.0]])
 
-        theta = 15.0 / 180.0 * np.pi 
-        base_camloc_nominal = np.array([[ np.cos(theta), 0.0, np.sin(theta), 0.0582],  
-                                        [ 0.0,           1.0, 0.0,           0.0],
-                                        [-np.sin(theta), 0.0, np.cos(theta), 0.1072],
-                                        [ 0.0,           0.0, 0.0,           1.0]])
+        self.camloc_base = self.camloc_camcv @ camcv_base_estimated
+        # self.camloc_base = np.linalg.inv(base_camloc_nominal)
 
-        camloc_base = self.camloc_camcv @ camcv_base_estimated
-        # camloc_base = np.linalg.inv(base_camloc_nominal)
+        self.map_atloc = np.array([[1.0, 0.0, 0.0, 0.0],
+                                   [0.0, 1.0, 0.0, 0.0],
+                                   [0.0, 0.0, 1.0, 0.085],
+                                   [0.0, 0.0, 0.0, 1.0]])
 
-        map_atloc = np.array([[1.0, 0.0, 0.0, 0.0],
-                              [0.0, 1.0, 0.0, 0.0],
-                              [0.0, 0.0, 1.0, 0.085],
-                              [0.0, 0.0, 0.0, 1.0]])
-
-        broadcastTF(camloc_base, 'camera', 'at_baselink', self.static_tf_br)
-        broadcastTF(map_atloc, 'map', 'april_tag', self.static_tf_br)
-        
-
-       
+        broadcastTF(self.camloc_base, 'camera',
+                    'at_baselink', self.static_tf_br)
+        broadcastTF(self.map_atloc, 'map', 'april_tag', self.static_tf_br)
 
 
     def callback(self, data):
         img_gray = cv2.cvtColor(self.readImage(data), cv2.COLOR_BGR2GRAY)
 
         # TODO undistort image with gpu
-        undistorted_img = cv2.remap(img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
+        undistorted_img = cv2.remap(
+            img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
 
-        # # TODO remove debug info
-        # msg = self.bridge.cv2_to_compressed_imgmsg(undistorted_img, dst_format='jpeg')
-        # self.debug_image_pub.publish(msg)
-
-        tags = self.at_detector.detect(undistorted_img, estimate_tag_pose=True, camera_params=self.camera_params, tag_size=TAG_SIZE)
+        tags = self.at_detector.detect(
+            undistorted_img, estimate_tag_pose=True, camera_params=self.camera_params, tag_size=TAG_SIZE)
 
         for tag in tags:
             if self.at_id == None:
                 self.at_id = tag.tag_id
 
-            if tag.tag_id == self.at_id: # Assumes all tags have a unique id
-                camcv_atcv = np.zeros((4,4))
-                camcv_atcv[:3,:3] = tag.pose_R
-                camcv_atcv[:3,-1] = np.squeeze(tag.pose_t)
-                camcv_atcv[-1,-1] = 1.0
+            if tag.tag_id == self.at_id:  # Assumes all tags have a unique id
+                camcv_atcv = np.zeros((4, 4))
+                camcv_atcv[:3, :3] = tag.pose_R
+                camcv_atcv[:3, -1] = np.squeeze(tag.pose_t)
+                camcv_atcv[-1, -1] = 1.0
 
                 camloc_atloc = self.camloc_camcv @ camcv_atcv @ self.atcv_atloc
                 atloc_camloc = np.linalg.inv(camloc_atloc)
 
-                broadcastTF(atloc_camloc, 'april_tag', 'camera', self.tf_br, data.header.stamp)
+                map_base = self.map_atloc @ atloc_camloc @ self.camloc_base
+
+                broadcastTF(atloc_camloc, 'april_tag', 'camera',
+                            self.tf_br, data.header.stamp)
+                broadcastTF(map_base, 'map', 'at_baselink', self.tf_br)
 
                 break
-
-    
-
-
 
     def readImage(self, msg_image):
         try:
@@ -228,11 +229,6 @@ class ATLocalizationNode(DTROS):
         except CvBridgeError as e:
             self.log(e)
             return []
-
-
-
-
-
 
 
 if __name__ == '__main__':
