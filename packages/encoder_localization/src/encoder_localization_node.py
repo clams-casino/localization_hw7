@@ -118,13 +118,13 @@ class EncoderLocalizationNode(DTROS):
             self.last_tick_time = msg.header.stamp
 
         if wheel == 'left':
-            if self.left_tick_init == None:
+            if self.left_tick_init is None:
                 self.left_tick_init = msg.data
             else:
                 self.left_distance = (msg.data - self.left_tick_init) * self._C
 
         elif wheel == 'right':
-            if self.right_tick_init == None:
+            if self.right_tick_init is None:
                 self.right_tick_init = msg.data
             else:
                 self.right_distance = (msg.data - self.right_tick_init) * self._C
