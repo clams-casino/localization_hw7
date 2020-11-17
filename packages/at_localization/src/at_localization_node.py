@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
 import os
-import math
 import cv2
 
 import rospy
@@ -68,7 +67,7 @@ def broadcastTF(tf_mat, parent, child, broadcaster, timestamp=None):
     '''
     t = geometry_msgs.msg.TransformStamped()
 
-    t.header.stamp = timestamp if timestamp != None else rospy.Time.now()
+    t.header.stamp = timestamp if timestamp is not None else rospy.Time.now()
     t.header.frame_id = parent
     t.child_frame_id = child
 
@@ -186,8 +185,6 @@ class ATLocalizationNode(DTROS):
                                    [0.0, 0.0, 1.0, 0.085],
                                    [0.0, 0.0, 0.0, 1.0]])
 
-        broadcastTF(self.camloc_base, 'camera',
-                    'at_baselink', self.static_tf_br)
         broadcastTF(self.map_atloc, 'map', 'april_tag', self.static_tf_br)
 
 
@@ -195,14 +192,18 @@ class ATLocalizationNode(DTROS):
         img_gray = cv2.cvtColor(self.readImage(data), cv2.COLOR_BGR2GRAY)
 
         # TODO undistort image with gpu
-        undistorted_img = cv2.remap(
-            img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
+        try:
+            undistorted_img = cv2.remap(
+                img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
+        except:
+            rospy.logwarn('Was not able to undistort image for april tag localization')
+            return
 
         tags = self.at_detector.detect(
             undistorted_img, estimate_tag_pose=True, camera_params=self.camera_params, tag_size=TAG_SIZE)
 
         for tag in tags:
-            if self.at_id == None:
+            if self.at_id is None:
                 self.at_id = tag.tag_id
 
             if tag.tag_id == self.at_id:  # Assumes all tags have a unique id
@@ -218,7 +219,8 @@ class ATLocalizationNode(DTROS):
 
                 broadcastTF(atloc_camloc, 'april_tag', 'camera',
                             self.tf_br, data.header.stamp)
-                broadcastTF(map_base, 'map', 'at_baselink', self.tf_br, data.header.stamp)
+                broadcastTF(map_base, 'map', 'at_baselink', 
+                            self.tf_br, data.header.stamp)
 
                 break
 
@@ -233,6 +235,7 @@ class ATLocalizationNode(DTROS):
 
 if __name__ == '__main__':
     # Initialize the node
-    camera_node = ATLocalizationNode(node_name='at_localization_node')
+    node = ATLocalizationNode(node_name='at_localization_node')
+    rospy.loginfo("at_localization_node is up and running...")
     # Keep it spinning to keep the node alive
     rospy.spin()
