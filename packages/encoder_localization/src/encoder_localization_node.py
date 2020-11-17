@@ -8,6 +8,8 @@ from duckietown_msgs.msg import WheelEncoderStamped
 
 import tf
 
+from encoder_localization.srv import InitFrame, InitFrameResponse
+
 N_REV = 135
 
 
@@ -35,6 +37,8 @@ class EncoderLocalizationNode(DTROS):
                                                         lambda msg: self.cb_encoder_data('right', msg))
 
         
+        # Service
+        self.init_frame_srv = rospy.Service('~init_frame', InitFrame, self.handle_init_frame)
 
         # Timed TF publication
         self.tf_timer = rospy.Timer(rospy.Duration(1.0/30.0), self.tf_timer_cb)
@@ -45,8 +49,7 @@ class EncoderLocalizationNode(DTROS):
         
 
         # TODO Initialize a starting tf from encoder_baselink -> map frame
-        self.map_t_initbase = (0.3, 0.0) #(x_init, y_init)
-        self.map_theta_initbase = np.pi
+        self.map_initbase_se2 = (0.3, 0.0, np.pi) #(x_init, y_init, theta_init)
         # TODO allow these to be changed via a service
 
 
@@ -73,6 +76,13 @@ class EncoderLocalizationNode(DTROS):
         # Keep track of the starting tick value to zero everything out
         self.left_tick_init = None
         self.right_tick_init = None
+
+
+    def handle_init_frame(self, req):
+        # TODO theta needs to be converted to radians
+        self.map_initbase_se2 = (req.x, req.y, req.theta)
+        response = 'Set initial frame for encoder baselink to ({:.2f}, {:.2f}, {:.2f})'.format(self.map_initbase_se2[0], self.map_initbase_se2[1], np.rad2deg(self.map_initbase_se2[2]))
+        return InitFrameResponse(response)
 
 
     @staticmethod
@@ -102,9 +112,9 @@ class EncoderLocalizationNode(DTROS):
 
 
         # Get base pose in map frame
-        map_x_base = np.cos(self.map_theta_initbase) * self.x + np.sin(-self.map_theta_initbase) * self.y + self.map_t_initbase[0]
-        map_y_base = np.sin(self.map_theta_initbase) * self.x + np.cos(self.map_theta_initbase) * self.y + self.map_t_initbase[1]
-        map_theta_base = self.wrap(self.theta + self.map_theta_initbase)
+        map_x_base = np.cos(self.map_initbase_se2[2]) * self.x - np.sin(self.map_initbase_se2[2]) * self.y + self.map_initbase_se2[0]
+        map_y_base = np.sin(self.map_initbase_se2[2]) * self.x + np.cos(self.map_initbase_se2[2]) * self.y + self.map_initbase_se2[1]
+        map_theta_base = self.wrap(self.theta + self.map_initbase_se2[2])
 
         self.tf_broadcaster.sendTransform((map_x_base, map_y_base, 0),
                                           tf.transformations.quaternion_from_euler(0, 0, map_theta_base),

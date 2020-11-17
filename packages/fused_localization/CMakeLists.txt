@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   tf
   tf2_ros
+  encoder_localization
 )
 
 catkin_package()
