@@ -13,6 +13,15 @@ from encoder_localization.srv import InitFrame, InitFrameResponse
 N_REV = 135
 
 
+def wrap(theta):
+    if theta > np.pi:
+        return theta - 2 * np.pi
+    elif theta <= -np.pi:
+        return theta + 2 * np.pi
+    else:
+        return theta
+
+
 class EncoderLocalizationNode(DTROS):
 
     def __init__(self, node_name):
@@ -85,14 +94,7 @@ class EncoderLocalizationNode(DTROS):
         return InitFrameResponse(response)
 
 
-    @staticmethod
-    def wrap(theta):
-        if theta > np.pi:
-            return theta - 2 * np.pi
-        elif theta <= -np.pi:
-            return theta + 2 * np.pi
-        else:
-            return theta
+    
 
     def tfTimerCallback(self, timer):
 
@@ -108,13 +110,13 @@ class EncoderLocalizationNode(DTROS):
 
         self.x += d * np.cos(self.theta)
         self.y += d * np.sin(self.theta)
-        self.theta  = self.wrap(self.theta + dtheta)
+        self.theta  = wrap(self.theta + dtheta)
 
 
         # Get base pose in map frame
         map_x_base = np.cos(self.map_initbase_se2[2]) * self.x - np.sin(self.map_initbase_se2[2]) * self.y + self.map_initbase_se2[0]
         map_y_base = np.sin(self.map_initbase_se2[2]) * self.x + np.cos(self.map_initbase_se2[2]) * self.y + self.map_initbase_se2[1]
-        map_theta_base = self.wrap(self.theta + self.map_initbase_se2[2])
+        map_theta_base = wrap(self.theta + self.map_initbase_se2[2])
 
         self.tf_broadcaster.sendTransform((map_x_base, map_y_base, 0),
                                           tf.transformations.quaternion_from_euler(0, 0, map_theta_base),
