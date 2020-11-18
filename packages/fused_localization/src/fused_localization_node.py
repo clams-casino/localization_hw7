@@ -14,6 +14,9 @@ from encoder_localization.srv import InitFrame
 
 
 def wrap(theta):
+    """
+        Wrap between (-pi,pi]
+    """
     if theta > np.pi:
         return theta - 2 * np.pi
     elif theta <= -np.pi:
