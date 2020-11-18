@@ -112,16 +112,8 @@ class ATLocalizationNode(DTROS):
                                     refine_edges=1,
                                     decode_sharpening=0.25,
                                     debug=0)
-        # Keep track of the ID of the landmark tag
+        # keep track of the ID of the landmark tag
         self.at_id = None
-
-
-
-        # check cuda
-        print('cuda')
-        print(cv2.cuda.getCudaEnabledDeviceCount())
-
-
 
         # get camera calibration parameters (homography, camera matrix, distortion parameters)
         intrinsics_file = '/data/config/calibrations/camera_intrinsic/' + \
@@ -154,9 +146,7 @@ class ATLocalizationNode(DTROS):
         self.map1, self.map2, = cv2.initUndistortRectifyMap(
             cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
 
-
         # define and broadcast static tfs
-
         self.camloc_camcv = np.array([[0.0,  0.0, 1.0, 0.0],
                                       [-1.0,  0.0, 0.0, 0.0],
                                       [0.0, -1.0, 0.0, 0.0],
@@ -191,12 +181,12 @@ class ATLocalizationNode(DTROS):
     def callback(self, data):
         img_gray = cv2.cvtColor(self.readImage(data), cv2.COLOR_BGR2GRAY)
 
-        # TODO undistort image with gpu
         try:
             undistorted_img = cv2.remap(
                 img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
         except:
-            rospy.logwarn('Was not able to undistort image for april tag localization')
+            rospy.logwarn(
+                'Was not able to undistort image for april tag detection')
             return
 
         tags = self.at_detector.detect(
@@ -219,10 +209,11 @@ class ATLocalizationNode(DTROS):
 
                 broadcastTF(atloc_camloc, 'april_tag', 'camera',
                             self.tf_br, data.header.stamp)
-                broadcastTF(map_base, 'map', 'at_baselink', 
+                broadcastTF(map_base, 'map', 'at_baselink',
                             self.tf_br, data.header.stamp)
 
                 break
+
 
     def readImage(self, msg_image):
         try:
