@@ -38,10 +38,15 @@ def readYamlFile(fname):
 
 
 def estimateTfFromHomography(H, K):
+    """
+        Estimates transformation matrix from a homograph H using camera
+        matrix K
+    """
     T_plane = np.linalg.inv(K) @ H
     # estimate scale using rotation matrix basis constraint
     T_plane = T_plane / np.linalg.norm(T_plane[:, 0])
 
+    # Resolve sign ambiguity
     if T_plane[1, -1] < 0.0:
         T_plane = -T_plane
 
@@ -62,9 +67,9 @@ def estimateTfFromHomography(H, K):
 
 
 def broadcastTF(tf_mat, parent, child, broadcaster, timestamp=None):
-    ''' 
-    Assumes tf_mat give the transformation from child frame to parent frame
-    '''
+    """
+        Assumes tf_mat give the transformation from child frame to parent frame
+    """
     t = geometry_msgs.msg.TransformStamped()
 
     t.header.stamp = timestamp if timestamp is not None else rospy.Time.now()
