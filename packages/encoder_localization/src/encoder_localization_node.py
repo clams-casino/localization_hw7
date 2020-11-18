@@ -14,6 +14,9 @@ N_REV = 135
 
 
 def wrap(theta):
+    """
+        Wrap between (-pi,pi]
+    """
     if theta > np.pi:
         return theta - 2 * np.pi
     elif theta <= -np.pi:
@@ -26,19 +29,19 @@ class EncoderLocalizationNode(DTROS):
 
     def __init__(self, node_name):
 
-        # Initialize the DTROS parent class
+        # initialize the DTROS parent class
         super(EncoderLocalizationNode, self).__init__(
             node_name=node_name, node_type=NodeType.PERCEPTION)
         self.veh_name = rospy.get_namespace().strip("/")
 
-        # Get static parameters
+        # get static parameters
         self._baseline = rospy.get_param(
             f'/{self.veh_name}/kinematics_node/baseline')
         self._radius = rospy.get_param(
             f'/{self.veh_name}/kinematics_node/radius')
         self._C = 2.0*np.pi*self._radius / N_REV     # Precompute this multiplier
 
-        # Subscribers
+        # subscribers
         self.sub_encoder_ticks_left = rospy.Subscriber('left_wheel_encoder_node/tick',
                                                        WheelEncoderStamped,
                                                        lambda msg: self.callbackEncoder('left', msg))
@@ -47,40 +50,39 @@ class EncoderLocalizationNode(DTROS):
                                                         WheelEncoderStamped,
                                                         lambda msg: self.callbackEncoder('right', msg))
 
-        # Service
+        # service
         self.init_frame_srv = rospy.Service(
             '~init_frame', InitFrame, self.handleInitFrame)
 
-        # Timed TF publication
+        # timed TF publication
         self.tf_timer = rospy.Timer(
             rospy.Duration(1.0/30.0), self.tfTimerCallback)
 
-        # TF broadcaster
+        # tf broadcaster
         self.tf_broadcaster = tf.TransformBroadcaster()
 
         # (x_init, y_init, theta_init)
         self.map_initbase_se2 = (0.3, 0.0, np.pi)
 
-        # Integrated states, starting from the initial tf that's offset from map (initbase frame)
+        # integrated states, starting from the initial tf that's offset from map (initbase frame)
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
 
-        # Keep track of timestamp of last recieved encoder tick
+        # keep track of timestamp of last recieved encoder tick
         self.last_tick_time = rospy.Time(0)
 
-        # Keep track of the distance travelled by each wheel for all time
+        # keep track of the distance travelled by each wheel for all time
         self.left_distance = 0.0
         self.right_distance = 0.0
 
-        # Keep track of the distance travelled by each wheel at the time of publishing the tf
+        # keep track of the distance travelled by each wheel at the time of publishing the tf
         self.left_distance_last = 0.0
         self.right_distance_last = 0.0
 
-        # Keep track of the starting tick value to zero everything out
+        # keep track of the starting tick value to zero everything out
         self.left_tick_init = None
         self.right_tick_init = None
-
 
     def handleInitFrame(self, req):
         self.map_initbase_se2 = (req.x, req.y, req.theta)
@@ -88,9 +90,7 @@ class EncoderLocalizationNode(DTROS):
             self.map_initbase_se2[0], self.map_initbase_se2[1], np.rad2deg(self.map_initbase_se2[2]))
         return InitFrameResponse(response)
 
-
     def tfTimerCallback(self, timer):
-
         dl = self.left_distance - self.left_distance_last
         dr = self.right_distance - self.right_distance_last
 
@@ -105,10 +105,12 @@ class EncoderLocalizationNode(DTROS):
         self.theta = wrap(self.theta + dtheta)
 
         # Get base pose in map frame
-        map_x_base = np.cos(self.map_initbase_se2[2]) * self.x - np.sin(
-            self.map_initbase_se2[2]) * self.y + self.map_initbase_se2[0]
-        map_y_base = np.sin(self.map_initbase_se2[2]) * self.x + np.cos(
-            self.map_initbase_se2[2]) * self.y + self.map_initbase_se2[1]
+        map_x_base = np.cos(self.map_initbase_se2[2]) * self.x - \
+            np.sin(self.map_initbase_se2[2]) * self.y + \
+            self.map_initbase_se2[0]
+        map_y_base = np.sin(self.map_initbase_se2[2]) * self.x + \
+            np.cos(self.map_initbase_se2[2]) * self.y + \
+            self.map_initbase_se2[1]
         map_theta_base = wrap(self.theta + self.map_initbase_se2[2])
 
         self.tf_broadcaster.sendTransform((map_x_base, map_y_base, 0),
@@ -117,7 +119,6 @@ class EncoderLocalizationNode(DTROS):
                                           rospy.Time.now(),   # TODO update duckiebot image
                                           'encoder_baselink',
                                           'map')
-
 
     def callbackEncoder(self, wheel, msg):
         if msg.header.stamp > self.last_tick_time:
