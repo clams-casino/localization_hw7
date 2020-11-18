@@ -30,18 +30,18 @@ class EncoderLocalizationNode(DTROS):
         # Subscribers
         self.sub_encoder_ticks_left = rospy.Subscriber('left_wheel_encoder_node/tick', 
                                                         WheelEncoderStamped,
-                                                        lambda msg: self.cb_encoder_data('left', msg))
+                                                        lambda msg: self.callbackEncoder('left', msg))
 
         self.sub_encoder_ticks_right = rospy.Subscriber('right_wheel_encoder_node/tick', 
                                                         WheelEncoderStamped, 
-                                                        lambda msg: self.cb_encoder_data('right', msg))
+                                                        lambda msg: self.callbackEncoder('right', msg))
 
         
         # Service
-        self.init_frame_srv = rospy.Service('~init_frame', InitFrame, self.handle_init_frame)
+        self.init_frame_srv = rospy.Service('~init_frame', InitFrame, self.handleInitFrame)
 
         # Timed TF publication
-        self.tf_timer = rospy.Timer(rospy.Duration(1.0/30.0), self.tf_timer_cb)
+        self.tf_timer = rospy.Timer(rospy.Duration(1.0/30.0), self.tfTimerCallback)
 
         # TF broadcaster
         self.tf_broadcaster = tf.TransformBroadcaster()
@@ -78,7 +78,7 @@ class EncoderLocalizationNode(DTROS):
         self.right_tick_init = None
 
 
-    def handle_init_frame(self, req):
+    def handleInitFrame(self, req):
         # TODO theta needs to be converted to radians
         self.map_initbase_se2 = (req.x, req.y, req.theta)
         response = 'Set initial frame for encoder baselink to ({:.2f}, {:.2f}, {:.2f})'.format(self.map_initbase_se2[0], self.map_initbase_se2[1], np.rad2deg(self.map_initbase_se2[2]))
@@ -94,7 +94,7 @@ class EncoderLocalizationNode(DTROS):
         else:
             return theta
 
-    def tf_timer_cb(self, timer):
+    def tfTimerCallback(self, timer):
 
         dl = self.left_distance - self.left_distance_last
         dr = self.right_distance - self.right_distance_last
@@ -123,7 +123,7 @@ class EncoderLocalizationNode(DTROS):
                                           'map')
         
 
-    def cb_encoder_data(self, wheel, msg):
+    def callbackEncoder(self, wheel, msg):
         if msg.header.stamp > self.last_tick_time:
             self.last_tick_time = msg.header.stamp
 
