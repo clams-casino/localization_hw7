@@ -102,7 +102,7 @@ class ATLocalizationNode(DTROS):
 
         # construct subscriber for images
         self.camera_sub = rospy.Subscriber(
-            'camera_node/image/compressed', CompressedImage, self.callback, queue_size=1)  # Only process latest messages
+            'camera_node/image/compressed', CompressedImage, self.callback, queue_size=10)  
 
         # tf broadcasters
         self.static_tf_br = tf2_ros.StaticTransformBroadcaster()
@@ -113,7 +113,7 @@ class ATLocalizationNode(DTROS):
                                     families='tag36h11',
                                     nthreads=4,
                                     quad_decimate=2.0,
-                                    quad_sigma=0.8,
+                                    quad_sigma=0.0,
                                     refine_edges=1,
                                     decode_sharpening=0.25,
                                     debug=0)
