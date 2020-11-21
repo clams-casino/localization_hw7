@@ -105,8 +105,8 @@ class ATLocalizationNode(DTROS):
             'camera_node/image/compressed', CompressedImage, self.callback, queue_size=10)  
 
 
-        self.debug_pub = rospy.Publisher(
-            '~debug_image/compressed', CompressedImage)
+        # self.debug_pub = rospy.Publisher(
+        #     '~debug_image/compressed', CompressedImage)
         
 
         # tf broadcasters
@@ -195,8 +195,8 @@ class ATLocalizationNode(DTROS):
             undistorted_img = cv2.remap(
                 img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
 
-            msg = self.bridge.cv2_to_compressed_imgmsg(undistorted_img, dst_format='jpeg')
-            self.debug_pub.publish(msg)
+            # msg = self.bridge.cv2_to_compressed_imgmsg(undistorted_img, dst_format='jpeg')
+            # self.debug_pub.publish(msg)
             
         except:
             rospy.logwarn(
