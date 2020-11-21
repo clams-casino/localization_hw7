@@ -104,6 +104,11 @@ class ATLocalizationNode(DTROS):
         self.camera_sub = rospy.Subscriber(
             'camera_node/image/compressed', CompressedImage, self.callback, queue_size=10)  
 
+
+        self.debug_pub = rospy.Publisher(
+            '~debug_image/compressed', CompressedImage)
+        
+
         # tf broadcasters
         self.static_tf_br = tf2_ros.StaticTransformBroadcaster()
         self.tf_br = tf2_ros.TransformBroadcaster()
@@ -147,7 +152,7 @@ class ATLocalizationNode(DTROS):
             cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2])
 
         new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(
-            cam_mat, distortion_coeff, (640, 480), 0.0)
+            cam_mat, distortion_coeff, (640, 480), 1.0)
         self.map1, self.map2, = cv2.initUndistortRectifyMap(
             cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
 
@@ -189,6 +194,10 @@ class ATLocalizationNode(DTROS):
         try:
             undistorted_img = cv2.remap(
                 img_gray, self.map1, self.map2, cv2.INTER_LINEAR)
+
+            msg = self.bridge.cv2_to_compressed_imgmsg(undistorted_img, dst_format='jpeg')
+            self.debug_pub.publish(msg)
+            
         except:
             rospy.logwarn(
                 'Was not able to undistort image for april tag detection')
