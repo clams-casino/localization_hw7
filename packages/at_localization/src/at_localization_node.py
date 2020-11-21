@@ -102,7 +102,7 @@ class ATLocalizationNode(DTROS):
 
         # construct subscriber for images
         self.camera_sub = rospy.Subscriber(
-            'camera_node/image/compressed', CompressedImage, self.callback, queue_size=10)  
+            'camera_node/image/compressed', CompressedImage, self.callback, queue_size=1, buff_size=(20*(1024**2)))  
 
 
         # self.debug_pub = rospy.Publisher(
@@ -117,7 +117,7 @@ class ATLocalizationNode(DTROS):
         self.at_detector = Detector(searchpath=['apriltags'],
                                     families='tag36h11',
                                     nthreads=4,
-                                    quad_decimate=2.0,
+                                    quad_decimate=4.0,
                                     quad_sigma=0.0,
                                     refine_edges=1,
                                     decode_sharpening=0.25,
