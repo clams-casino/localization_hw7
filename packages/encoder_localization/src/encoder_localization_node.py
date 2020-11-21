@@ -41,26 +41,6 @@ class EncoderLocalizationNode(DTROS):
             f'/{self.veh_name}/kinematics_node/radius')
         self._C = 2.0*np.pi*self._radius / N_REV     # Precompute this multiplier
 
-        # subscribers
-        self.sub_encoder_ticks_left = rospy.Subscriber('left_wheel_encoder_node/tick',
-                                                       WheelEncoderStamped,
-                                                       lambda msg: self.callbackEncoder('left', msg))
-
-        self.sub_encoder_ticks_right = rospy.Subscriber('right_wheel_encoder_node/tick',
-                                                        WheelEncoderStamped,
-                                                        lambda msg: self.callbackEncoder('right', msg))
-
-        # service
-        self.init_frame_srv = rospy.Service(
-            '~init_frame', InitFrame, self.handleInitFrame)
-
-        # timed TF publication
-        self.tf_timer = rospy.Timer(
-            rospy.Duration(1.0/30.0), self.tfTimerCallback)
-
-        # tf broadcaster
-        self.tf_broadcaster = tf.TransformBroadcaster()
-
         # (x_init, y_init, theta_init)
         self.map_initbase_se2 = (0.3, 0.0, np.pi)
 
@@ -84,11 +64,35 @@ class EncoderLocalizationNode(DTROS):
         self.left_tick_init = None
         self.right_tick_init = None
 
+
+        # subscribers
+        self.sub_encoder_ticks_left = rospy.Subscriber('left_wheel_encoder_node/tick',
+                                                       WheelEncoderStamped,
+                                                       lambda msg: self.callbackEncoder('left', msg))
+
+        self.sub_encoder_ticks_right = rospy.Subscriber('right_wheel_encoder_node/tick',
+                                                        WheelEncoderStamped,
+                                                        lambda msg: self.callbackEncoder('right', msg))
+
+        # service
+        self.init_frame_srv = rospy.Service(
+            '~init_frame', InitFrame, self.handleInitFrame)
+
+        # timed TF publication
+        self.tf_timer = rospy.Timer(
+            rospy.Duration(1.0/30.0), self.tfTimerCallback)
+
+        # tf broadcaster
+        self.tf_broadcaster = tf.TransformBroadcaster()
+
+
+
     def handleInitFrame(self, req):
         self.map_initbase_se2 = (req.x, req.y, req.theta)
         response = 'Set initial frame for encoder baselink to ({:.2f}, {:.2f}, {:.2f})'.format(
             self.map_initbase_se2[0], self.map_initbase_se2[1], np.rad2deg(self.map_initbase_se2[2]))
         return InitFrameResponse(response)
+
 
     def tfTimerCallback(self, timer):
         dl = self.left_distance - self.left_distance_last
@@ -114,11 +118,12 @@ class EncoderLocalizationNode(DTROS):
         map_theta_base = wrap(self.theta + self.map_initbase_se2[2])
 
         self.tf_broadcaster.sendTransform((map_x_base, map_y_base, 0),
-                                          tf.transformations.quaternion_from_euler(
-                                              0, 0, map_theta_base),
-                                          rospy.Time.now(),   # TODO update duckiebot image
-                                          'encoder_baselink',
-                                          'map')
+                                        tf.transformations.quaternion_from_euler(
+                                            0, 0, map_theta_base),
+                                        rospy.Time.now(),   # TODO update duckiebot image
+                                        'encoder_baselink',
+                                        'map')
+
 
     def callbackEncoder(self, wheel, msg):
         if msg.header.stamp > self.last_tick_time:
