@@ -117,10 +117,14 @@ class EncoderLocalizationNode(DTROS):
             self.map_initbase_se2[1]
         map_theta_base = wrap(self.theta + self.map_initbase_se2[2])
 
+        # Check if the encoder ticks are present
+        # to work with older and newer version of the encoder driver
+        timestamp = self.last_tick_time if self.last_tick_time.secs != 0 else rospy.Time.now()
+
         self.tf_broadcaster.sendTransform((map_x_base, map_y_base, 0),
                                         tf.transformations.quaternion_from_euler(
                                             0, 0, map_theta_base),
-                                        rospy.Time.now(),   # TODO update duckiebot image
+                                        timestamp,
                                         'encoder_baselink',
                                         'map')
 
