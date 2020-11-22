@@ -148,13 +148,13 @@ class ATLocalizationNode(DTROS):
             np.array(extrinsics['homography']).reshape(3, 3))
 
         # precompute some quantities
-        self.camera_params = (
-            cam_mat[0, 0], cam_mat[1, 1], cam_mat[0, 2], cam_mat[1, 2])
-
         new_cam_mat, _ = cv2.getOptimalNewCameraMatrix(
             cam_mat, distortion_coeff, (640, 480), 1.0)
         self.map1, self.map2, = cv2.initUndistortRectifyMap(
             cam_mat, distortion_coeff, np.eye(3), new_cam_mat, (640, 480), cv2.CV_32FC1)
+
+        self.camera_params = (
+            new_cam_mat[0, 0], new_cam_mat[1, 1], new_cam_mat[0, 2], new_cam_mat[1, 2])
 
         # define and broadcast static tfs
         self.camloc_camcv = np.array([[0.0,  0.0, 1.0, 0.0],
